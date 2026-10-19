@@ -1,362 +1,667 @@
-# Cài đặt và chạy backend Claims Workflow Orchestrator
+# Backend — Windows, macOS và Linux
 
-Backend sử dụng NestJS, TypeScript, SQLite (`better-sqlite3`) và cấu hình workflow
-JSON. Hướng dẫn dưới đây dành cho Terminal dùng zsh/bash trên macOS/Linux.
-Bắt đầu từ thư mục gốc repository; không cần cài Nest CLI hoặc SQLite server toàn cục.
+- Windows 10/11: phần PowerShell ngay bên dưới.
+- [macOS và Linux: Terminal zsh/bash](#macos-va-linux).
+- [Workflow scenarios](../docs/demo-scenarios.md): giữ nguyên các kịch bản nghiệp vụ.
 
-## 1. Điều kiện cần
+## Windows 10/11 — PowerShell
 
-- Dùng Node.js **22.22.3 trở lên trong nhánh 22.x**, kèm npm. Đây là mức đáp ứng
-  yêu cầu của các công cụ trong `package-lock.json` hiện tại; không dùng Node 16/18.
-  `backend/package.json` chưa khai báo `engines` riêng.
-- Có `curl` để kiểm tra HTTP. Các ví dụ phân tích JSON dùng chính Node.js.
-- Có quyền đọc/ghi thư mục database và tạo các tệp SQLite WAL/SHM bên cạnh nó.
-- Kết nối mạng cho lần cài dependency đầu tiên. `better-sqlite3` là native module;
-  nếu không có binary phù hợp, quá trình cài có thể cần Python và bộ công cụ C/C++
-  của hệ điều hành. Không cần cài thêm package vào dự án để làm theo hướng dẫn.
+Dùng Windows PowerShell **5.1** hoặc PowerShell **7**, không cần Git Bash/WSL.
+Terminal 1 chạy server; Terminal 2 gửi requests. Các khối lệnh trong phần Windows là
+PowerShell. Không cần Nest CLI toàn cục hay SQLite server.
 
-Từ thư mục gốc repository:
+## 1. Nguyên nhân hướng dẫn cũ thất bại
 
-```sh
-cd backend
+Hướng dẫn cũ dùng export, mktemp, lsof, heredoc và cú pháp biến của bash/zsh.
+PowerShell không chạy chúng tương đương. Trong PowerShell 5.1, curl còn có thể là
+alias của Invoke-WebRequest, không nhận flags như curl Unix. Hướng dẫn mới dùng
+cmdlet HTTP trực tiếp, hashtable headers và ConvertTo-Json.
+
+Backend không tự nạp .env; chỉ đọc process.env. Thiếu NODE_ENV=development hoặc
+DEMO_IDENTITY_ENABLED=true khiến claim API trả 403 dù GET / vẫn trả 200.
+Scripts npm hiện tại không chứa cú pháp đặt biến riêng Unix, nên không cần sửa
+script hoặc thêm cross-env. SQLite dùng node:path/fileURLToPath, hỗ trợ đường dẫn
+Windows. Không có stack trace Windows được cung cấp: đây là các điểm không tương
+thích xác nhận từ source/hướng dẫn, không phải kết quả tái hiện trên Windows.
+
+## 2. Điều kiện và phiên bản — Terminal 1
+
+- Chọn **Node.js 22.22.3 Windows x64**, hoặc bản mới hơn trong nhánh 22.x. Đây là
+  mức đáp ứng engine của toolchain trong lockfile hiện tại. Không dùng Node 16/18;
+  Node 22.15.1 thấp hơn yêu cầu một số công cụ dù từng chạy được trên macOS.
+- npm đi kèm Node; lockfileVersion=3. Toolchain được đối chiếu chấp nhận npm >=8;
+  dự án không pin bản npm chính xác hoặc khai báo engines riêng. Không đổi sang
+  Yarn/pnpm. npm 10.9.2 là bản có sẵn được dùng kiểm tra trên macOS.
+- PowerShell 5.1/7, Git for Windows (dự án không pin bản Git), mạng để cài package,
+  quyền ghi thư mục database. Windows ARM64/native binding cần xác minh riêng.
+- better-sqlite3 là native module: nếu không tải được binary phù hợp thì cần Python
+  và Visual Studio Build Tools với workload C++; không thêm dependency dự án.
+
+Mở PowerShell thường, không cần Administrator:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$PSVersionTable.PSVersion
 node --version
-npm --version
-npm ci
+npm.cmd --version
+git --version
 ```
 
-Mong đợi: phiên bản Node/npm được in ra; `npm ci` kết thúc với exit code 0 và cài
-đúng lockfile. Lệnh này thay thế `node_modules`, không khởi tạo database. Không đổi
-runtime Node giữa lúc cài native module và lúc chạy backend.
+Mong đợi phiên bản như trên, mọi lệnh chạy được. Nếu sai/không tìm thấy, cài công
+cụ phù hợp, mở Terminal mới và kiểm tra PATH:
 
-## 2. Biến môi trường
+```powershell
+Get-Command node, npm.cmd, git
+where.exe node
+```
 
-Ứng dụng đọc trực tiếp `process.env`; không có `dotenv`/`ConfigModule` để tự nạp
-`.env`. Chỉ tạo một tệp `.env` sẽ không cấu hình backend. Dùng `export` trong chính
-Terminal chạy server; biến ở Terminal khác không tự truyền sang.
+Dùng npm.cmd tránh execution policy chặn npm.ps1; không cần nới policy toàn máy.
 
-| Biến | Ý nghĩa và giá trị local |
+## 3. Clone và cài — Terminal 1
+
+Từ thư mục người dùng Windows, dùng URL trong Git remote của repository:
+
+```powershell
+Set-Location $env:USERPROFILE
+git clone https://github.com/tranngochung13/claims-workflow-orchestrator.git
+if ($LASTEXITCODE -ne 0) { throw 'Clone failed; check URL, network and repository access.' }
+Set-Location (Join-Path $env:USERPROFILE 'claims-workflow-orchestrator\backend')
+npm.cmd ci
+if ($LASTEXITCODE -ne 0) { throw 'Install failed; fix the error before starting.' }
+```
+
+Mong đợi clone thành công, working directory là backend và npm ci exit 0. Nếu đã
+có checkout, không xóa/clone đè: Set-Location tới backend của checkout đó rồi npm.cmd
+ci. URL/quyền clone cần kiểm tra trên máy bạn; lần sửa tài liệu này không clone lại.
+
+npm ci cài đúng lockfile, thay node_modules, không tạo database. Không copy
+node_modules từ macOS/Linux hay Node khác sang Windows. Cài và chạy cùng runtime.
+
+## 4. Chọn database — Terminal 1, tại backend
+
+Chỉ chọn **A hoặc B**. Biến ở Terminal 1 không tự xuất hiện trong Terminal 2.
+
+### A. Cài mới/demo: đường dẫn mới, không đụng database hiện có
+
+```powershell
+$demoDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ('claims-demo-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $demoDirectory -ErrorAction Stop | Out-Null
+$env:SQLITE_DATABASE_PATH = Join-Path $demoDirectory 'claims.sqlite'
+if (Test-Path -LiteralPath $env:SQLITE_DATABASE_PATH) { throw 'Refusing to initialize an existing path.' }
+Write-Output "New demo database: $env:SQLITE_DATABASE_PATH"
+```
+
+Mong đợi path tuyệt đối mới, chưa có claims.sqlite; không dùng -Force. Backend sẽ
+khởi tạo file và migrations khi startup, không phải lúc New-Item. Giữ lại path nếu
+muốn dùng lại dữ liệu. Thư mục temp có thể bị hệ điều hành dọn, không dùng lưu dữ
+liệu quan trọng lâu dài. Tạo demo khác bằng thư mục mới, không xóa database cũ.
+
+### B. Dùng database hiện có, không khởi tạo lại
+
+Tại backend, với database mặc định của checkout:
+
+```powershell
+$existingDatabase = Join-Path (Get-Location).Path 'data\claims.sqlite'
+if (-not (Test-Path -LiteralPath $existingDatabase -PathType Leaf)) { throw 'Existing database not found; verify its actual location.' }
+$env:SQLITE_DATABASE_PATH = (Resolve-Path -LiteralPath $existingDatabase).Path
+Write-Output "Existing database: $env:SQLITE_DATABASE_PATH"
+```
+
+Nếu trước đó dùng path khác, thay $existingDatabase bằng path thật trước khi kiểm
+tra. Không trỏ tới file không tồn tại để “khôi phục” dữ liệu. Startup trên DB cũ có
+thể áp dụng migrations còn thiếu và đăng ký workflow mới: **không phải chỉ đọc**.
+Backup SQLite nhất quán trước nâng cấp dữ liệu quan trọng; không chỉ copy file
+chính khi WAL/writer còn hoạt động. Không reset/ghi đè database.
+
+### Cơ chế thực tế
+
+- Không đặt SQLITE_DATABASE_PATH: mặc định backend/data/claims.sqlite, tính theo
+  module source/dist. Trong test mode, không override thì dùng :memory:.
+- Path rỗng/toàn khoảng trắng bị từ chối; parent directory được tạo đệ quy. Path
+  tương đối theo working directory; nên dùng path tuyệt đối như trên. Không đưa
+  ký tự nháy bao quanh vào chính giá trị biến môi trường.
+- Migrations 001–005 trong src/database/migrations.ts tự chạy trước HTTP listen.
+  Không có script migrate/seed/reset. schema_migrations lưu ID/SHA-256 SQL, phải
+  khớp prefix chính xác; mismatch dừng với MIGRATION_DRIFT. Pending migrations
+  chạy trong transaction; lỗi rollback phần đang chờ, không sửa checksum cũ.
+- Foreign keys, WAL, synchronous=FULL, timeout 5 giây; cần quyền ghi cạnh file để
+  tạo WAL/SHM. Tránh thư mục chỉ đọc/network share cho lần setup local.
+- config/claims.v2.json và workflow.schema.json được validate trước mở DB. Registry
+  bất biến, claim cũ giữ version đã pin. Migration 005 thêm local payment records,
+  không chuyển tiền thật. Không sửa applied migrations hay nội dung version cũ.
+
+## 5. Cấu hình và chạy — Terminal 1, tại backend
+
+```powershell
+$env:PORT = '31879'
+$env:NODE_ENV = 'development'
+$env:DEMO_IDENTITY_ENABLED = 'true'
+$listeners = @(Get-NetTCPConnection -State Listen -LocalPort ([int]$env:PORT) -ErrorAction SilentlyContinue)
+if ($listeners.Count -gt 0) {
+    $listeners | Select-Object LocalAddress, LocalPort, OwningProcess
+    throw 'Port occupied. Choose another PORT; do not POST to an unknown server.'
+}
+Write-Output "PORT=$env:PORT NODE_ENV=$env:NODE_ENV DEMO_IDENTITY_ENABLED=$env:DEMO_IDENTITY_ENABLED"
+Write-Output "SQLITE_DATABASE_PATH=$env:SQLITE_DATABASE_PATH"
+npm.cmd run start:dev
+```
+
+Mong đợi compiler không lỗi, routes được đăng ký và listen thành công. start:dev là
+nest start --watch, không cần build trước. Giữ Terminal 1 mở. Nếu EADDRINUSE/startup
+error, không gửi POST: có thể server khác đang trả lời. Chọn PORT khác, restart và
+đổi URL Terminal 2. Nếu cmdlet kiểm tra port bị chặn/không có, cần kiểm chứng cổng
+bằng công cụ Windows trước khi gửi requests ghi dữ liệu.
+
+Không tự đọc .env. PORT mặc định 3000, chưa validate riêng: dùng chuỗi số hợp lệ.
+Demo cần đồng thời đúng development và true, phân biệt chữ hoa/thường. Không có
+payment credentials. API_PROXY_TARGET là biến Vite frontend, không phải backend.
+Observe đang có credential placeholder trong source, không có env Observe do app
+định nghĩa. Không commit secrets/local env files; hướng dẫn này không tạo .env.
+
+app.listen không giới hạn bind host; URL loopback không có nghĩa chỉ listen loopback.
+Chỉ bật demo trong local tin cậy, không mở ra Internet. Production luôn từ chối
+claim API demo, kể cả DEMO_IDENTITY_ENABLED=true; chưa có auth adapter production.
+
+## 6. Kiểm tra server — Terminal 2
+
+Mở PowerShell mới, vào backend của cùng checkout (đổi path nếu clone ở nơi khác):
+
+```powershell
+$ErrorActionPreference = 'Stop'
+Set-Location (Join-Path $env:USERPROFILE 'claims-workflow-orchestrator\backend')
+$baseUrl = 'http://127.0.0.1:31879'
+$response = Invoke-WebRequest -Uri "$baseUrl/" -UseBasicParsing
+$response.StatusCode
+$response.Content
+```
+
+Mong đợi **200**, văn bản **Hello World!**, không phải JSON. Không có /health hay
+/api/health. App khởi tạo DB/registry trước listen; GET / không phải continuous DB
+health check. Nếu khác, đọc Terminal 1/đối chiếu cổng; phải chắc phiên của bạn không
+báo EADDRINUSE trước khi làm bước tạo claim.
+
+## 7. Demo identities và API — Terminal 2
+
+| Header X-Demo-Actor-Id | Quyền |
 | --- | --- |
-| `PORT` | Cổng HTTP, mặc định `3000` khi không đặt. Ví dụ dùng `3109`; chọn cổng số hợp lệ, chưa bị chiếm. Code chưa validate biến này. |
-| `NODE_ENV` | Phải là chính xác `development` để dùng demo identity. Trong `test`, nếu không chỉ định database, mặc định là `:memory:`. Không có giá trị mặc định do ứng dụng tự gán. |
-| `DEMO_IDENTITY_ENABLED` | Phải là chính xác chuỗi `true`, đồng thời `NODE_ENV=development`, mới mở claim API demo. Thiếu/sai giá trị sẽ bị từ chối. |
-| `SQLITE_DATABASE_PATH` | Đường dẫn SQLite. Không bắt buộc; mặc định là `backend/data/claims.sqlite`, tính theo vị trí module, cả khi chạy source và `dist`. Giá trị rỗng/toàn khoảng trắng bị từ chối. Nên dùng đường dẫn tuyệt đối. Đường dẫn tương đối phụ thuộc working directory. |
+| claimant-1 | Tạo claim, xem/action claim mình sở hữu. |
+| claimant-2 | Claimant khác, tập dữ liệu sở hữu riêng. |
+| adjuster-1 | Xem mọi claim, action adjuster; không tạo claim. |
 
-Không cần API key hay thông tin payment provider. Module Observe hiện có credential
-placeholder trong source, không có biến môi trường Observe do ứng dụng định nghĩa.
-`API_PROXY_TARGET` thuộc Vite frontend, không phải cấu hình backend.
+Đây là impersonation demo, không phải authentication production. Role và owner do
+backend allowlist xác định; không gửi role/actor/owner trong body.
 
-Demo không phải authentication production: biết actor ID là có thể chọn danh tính
-đó khi demo bật. Chỉ chạy trong môi trường local tin cậy. `app.listen` không chỉ
-định bind host; không coi URL `127.0.0.1` bên dưới là cấu hình giới hạn lắng nghe.
-Production luôn từ chối demo identity, kể cả đặt `DEMO_IDENTITY_ENABLED=true`.
-Chưa có authentication adapter production.
+### Liệt kê claims
 
-## 3. Chọn database trước khi chạy
-
-Chỉ chọn **một** phương án trong Terminal A, đang ở `backend/`.
-
-### A. Tạo database demo mới, tách khỏi dữ liệu hiện có
-
-```sh
-export CWO_DEMO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claims-demo.XXXXXX")"
-export SQLITE_DATABASE_PATH="$CWO_DEMO_DIR/claims.sqlite"
-printf 'Database demo: %s\n' "$SQLITE_DATABASE_PATH"
+```powershell
+$claimantHeaders = @{ 'X-Demo-Actor-Id' = 'claimant-1' }
+$adjusterHeaders = @{ 'X-Demo-Actor-Id' = 'adjuster-1' }
+$response = Invoke-WebRequest -Uri "$baseUrl/api/claims?limit=10&offset=0" -Headers $claimantHeaders -UseBasicParsing
+$response.StatusCode
+$response.Content | ConvertFrom-Json | ConvertTo-Json -Depth 10
+Invoke-RestMethod -Uri "$baseUrl/api/claims?limit=10&offset=0" -Headers $adjusterHeaders
 ```
 
-`mktemp` chỉ tạo thư mục mới. SQLite chưa tồn tại; backend sẽ tạo tệp và áp dụng
-migrations khi khởi động ở bước 4. Giữ lại đường dẫn đã in để kiểm tra hoặc dùng
-lại dữ liệu demo. Chạy lại `mktemp` sẽ chọn một database mới khác, không xóa tệp cũ.
+Mong đợi **200**, object items/limit/offset; DB mới có items=[]. Adjuster xem mọi
+owner. limit 1–100 (mặc định 50), offset nguyên không âm (mặc định 0). 401/403: kiểm
+tra header và env ở Terminal 1, không sửa guard để vượt lỗi.
 
-### B. Chạy với database hiện có
+### Tạo claim — chỉ trên database demo mới
 
-Đối với database mặc định của checkout này:
-
-```sh
-export SQLITE_DATABASE_PATH="$PWD/data/claims.sqlite"
-test -f "$SQLITE_DATABASE_PATH" && printf 'Đã tìm thấy: %s\n' "$SQLITE_DATABASE_PATH"
+```powershell
+$payload = @{ title = 'Hu hong man hinh'; description = 'Man hinh hong khi van chuyen.' } | ConvertTo-Json -Compress
+$response = Invoke-WebRequest -Uri "$baseUrl/api/claims" -Method Post -Headers $claimantHeaders -ContentType 'application/json' -Body $payload -UseBasicParsing
+$response.StatusCode
+$claim = $response.Content | ConvertFrom-Json
+if (-not $claim.id) { throw 'No claim ID; stop and inspect the response.' }
+$claimId = $claim.id
+$claim | ConvertTo-Json -Depth 10
 ```
 
-Chỉ tiếp tục nếu kiểm tra thành công. Nếu ứng dụng trước đây dùng đường dẫn khác,
-đặt `SQLITE_DATABASE_PATH` thành đường dẫn tuyệt đối của **tệp đó** và kiểm tra lại;
-không giả định tệp mặc định là database đang dùng của một process khác.
-Một đường dẫn sai nhưng ghi được có thể khiến backend tạo database mới ngoài ý muốn.
+Mong đợi **201**, UUID thật, ownerActorId=claimant-1, workflowId=claims,
+workflowVersion=2, state=draft, revision=0, informationRequestCount=0, title,
+description, createdAt/updatedAt UTC. Chỉ nhận title/description không rỗng, tối đa
+120/2000 ký tự; trường thừa bị từ chối. Nếu lỗi, dừng trước khi dùng $claimId.
+Không tự retry tạo claim khi outcome chưa rõ: endpoint này chưa deduplicate command.
 
-Khởi động trên tệp hiện có có thể ghi migrations còn thiếu và đăng ký workflow
-version mới. Đây không phải thao tác chỉ đọc. Trước khi nâng cấp dữ liệu quan trọng,
-dừng process sử dụng database và tạo bản backup SQLite nhất quán theo quy trình
-của bạn; không chỉ sao chép riêng tệp chính khi WAL vẫn đang hoạt động.
+### Detail, discovery, audit
 
-### Migrations và workflow versions
+```powershell
+$response = Invoke-WebRequest -Uri "$baseUrl/api/claims/$claimId" -Headers $claimantHeaders -UseBasicParsing
+$response.StatusCode
+$response.Content | ConvertFrom-Json | ConvertTo-Json -Depth 10
 
-`DatabaseService` tự chạy migration trong quá trình khởi động, trước khi HTTP server
-sẵn sàng. Không có script `migrate`, `seed` hoặc `reset` riêng trong `package.json`.
+$response = Invoke-WebRequest -Uri "$baseUrl/api/claims/$claimId/available-transitions" -Headers $claimantHeaders -UseBasicParsing
+$response.StatusCode
+$response.Content | ConvertFrom-Json | ConvertTo-Json -Depth 10
 
-- Migrations nằm trong `src/database/migrations.ts`: `001_workflow_versions`,
-  `002_claims`, `003_claim_ownership`, `004_workflow_transitions`,
-  `005_payment_initiations`.
-- Lịch sử nằm ở `schema_migrations`. Runner đối chiếu ID/thứ tự và SHA-256 của SQL
-  đã áp dụng; sai lệch dừng startup với `MIGRATION_DRIFT`.
-- Các migration còn thiếu được áp dụng trong một transaction. Lỗi sẽ rollback
-  phần migration đang chờ, không ghi đè checksum cũ.
-- Kết nối bật foreign keys, WAL, `synchronous=FULL`, timeout 5 giây.
-- `config/claims.v2.json` và `config/workflow.schema.json` được nạp/validate lúc
-  startup. Registry lưu version bất biến; claim cũ giữ nguyên version đã pin.
-  Không sửa nội dung version đã đăng ký để thay đổi claim cũ.
-- Migration 005 chỉ thêm bảng local payment initiation. Không có chuyển tiền thật.
-
-Không xóa database, sửa ledger/checksum, đổi migration 001–004 hay tắt kiểm tra
-drift để làm startup thành công. Không chạy `DatabaseService` chỉ để “xem” database:
-constructor của nó có thể áp dụng migrations.
-
-## 4. Khởi động backend — Terminal A
-
-Sau khi chọn database, vẫn ở `backend/`:
-
-```sh
-# Trên macOS/Linux có lsof: nếu thấy process LISTEN, chọn cổng khác trước khi chạy.
-lsof -nP -iTCP:3109 -sTCP:LISTEN
-export PORT=3109
-export NODE_ENV=development
-export DEMO_IDENTITY_ENABLED=true
-npm run start:dev
+$response = Invoke-WebRequest -Uri "$baseUrl/api/claims/$claimId/audit?limit=10&offset=0" -Headers $claimantHeaders -UseBasicParsing
+$response.StatusCode
+$response.Content | ConvertFrom-Json | ConvertTo-Json -Depth 10
 ```
 
-Script thực tế là `nest start --watch`: biên dịch, chạy `src/main.ts`, theo dõi thay
-đổi mã nguồn. Không cần chạy `npm run build` trước lệnh này. Mong đợi biên dịch
-không lỗi, log Nest đăng ký routes và server bắt đầu lắng nghe. Giữ Terminal này mở;
-kiểm tra HTTP bên dưới mới xác nhận server đang phục vụ request.
-Nếu có EADDRINUSE, dừng bước kiểm tra HTTP và không gửi POST: một server khác có
-thể đang trả lời ở cổng đó. Chọn cổng khác, khởi động lại và cập nhật URL ở Terminal B.
+Mong đợi cả ba **200**. Detail trả claim object; discovery có claimId, workflowId,
+workflowVersion, state, revision, informationRequestCount/Limit và transitions
+(draft có submit eligible). Audit có metadata workflow, items/limit/offset; claim
+mới items=[]. Detail/discovery không nhận query, audit chỉ limit/offset.
+Claim khác owner trả 404 giống claim không tồn tại; audit không có API sửa/xóa.
+Nếu lỗi, xem bảng troubleshooting trước khi gọi lại.
 
-Các lựa chọn khác, cũng chạy từ `backend/`:
+## 8. Kiểm tra SQLite chỉ đọc — Terminal 2, tại backend
 
-```sh
-# Chạy không watch; dùng môi trường đã export trong Terminal này
-npm start
+Nhập đúng path được Terminal 1 in; không chạy lại bước tạo database mới ở Terminal 2:
 
-# Hoặc build rồi chạy output, thay cho hai cách trên
-npm run build
-NODE_ENV=production DEMO_IDENTITY_ENABLED=false npm run start:prod
-```
-
-Không chạy đồng thời các lựa chọn trên cùng một cổng/database để thử setup.
-`start:prod` là `node dist/main`; cần build trước. Khi đóng gói, giữ `config/`
-bên cạnh `dist/`; Nest build không chép JSON workflow vào `dist`. Production có thể
-trả `GET /`, nhưng claim routes trả 403 vì chưa có authentication production.
-
-## 5. Kiểm tra server và database — Terminal B
-
-Mở Terminal mới, vào `backend/` từ thư mục gốc repository:
-
-```sh
-cd backend
-export CWO_API_BASE_URL=http://127.0.0.1:3109
-curl -i "$CWO_API_BASE_URL/"
-```
-
-Mong đợi HTTP **200**, body là văn bản `Hello World!` (không phải JSON).
-Route này không yêu cầu identity. Không có endpoint `/health` hoặc `/api/health`.
-Vì app khởi tạo database và registry trước khi listen, response này cho biết quá
-trình startup đã hoàn tất; nó không phải kiểm tra tính toàn vẹn database liên tục.
-
-### Kiểm tra SQLite chỉ đọc (tùy chọn)
-
-Trong Terminal B, đặt biến thành **đúng đường dẫn đã in/chọn ở Terminal A**:
-
-```sh
-export SQLITE_DATABASE_PATH='/duong/dan/tuyet/doi/claims.sqlite'
-node --input-type=module <<'JS'
+```powershell
+$env:SQLITE_DATABASE_PATH = Read-Host 'Paste absolute database path from Terminal 1, without surrounding quotes'
+if (-not (Test-Path -LiteralPath $env:SQLITE_DATABASE_PATH -PathType Leaf)) { throw 'Database does not exist; do not create a replacement.' }
+@'
 import Database from 'better-sqlite3';
-import { existsSync } from 'node:fs';
-const path = process.env.SQLITE_DATABASE_PATH;
-if (!path || !existsSync(path)) throw new Error('Cần đường dẫn database đã tồn tại');
-const db = new Database(path, { readonly: true, fileMustExist: true });
+const db = new Database(process.env.SQLITE_DATABASE_PATH, { readonly: true, fileMustExist: true });
 try {
   db.pragma('query_only = ON');
   console.log('quick_check:', db.pragma('quick_check', { simple: true }));
   console.log('foreign_key_check:', db.pragma('foreign_key_check'));
   console.log('migrations:', db.prepare('SELECT id FROM schema_migrations ORDER BY id').all());
-} finally {
-  db.close();
-}
+} finally { db.close(); }
+'@ | node --input-type=module
+if ($LASTEXITCODE -ne 0) { throw 'Read-only check failed.' }
+```
+
+Mong đợi quick_check: ok, foreign_key_check: [], migrations 001–005 sau startup.
+DB cũ chưa nâng cấp có thể chỉ 001–004: không sửa ledger để ép khớp. Không dùng
+DatabaseService constructor để kiểm tra chỉ đọc, vì nó áp dụng migrations.
+
+## 9. Tests và build — tại backend
+
+Terminal 2: bỏ override DB trong phiên test, không đổi env server ở Terminal 1:
+
+```powershell
+Remove-Item Env:SQLITE_DATABASE_PATH -ErrorAction SilentlyContinue
+npm.cmd test
+if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed.' }
+npm.cmd run test:e2e
+if ($LASTEXITCODE -ne 0) { throw 'E2E tests failed.' }
+npm.cmd run lint
+if ($LASTEXITCODE -ne 0) { throw 'Lint failed.' }
+& '.\node_modules\.bin\tsc.cmd' -p tsconfig.json --noEmit --incremental false
+if ($LASTEXITCODE -ne 0) { throw 'TypeScript check failed.' }
+```
+
+Mong đợi tests passed, exit 0. Tests dùng memory/DB tạm; E2E cần socket local.
+Nếu lỗi, giữ nguyên kiểm tra bảo mật và sửa nguyên nhân. **Dừng watch ở Terminal 1
+bằng Ctrl+C trước khi build**, tránh cùng ghi dist/compiler cache:
+
+```powershell
+npm.cmd run build
+if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
+```
+
+Mong đợi tạo dist không lỗi compiler. Các scripts khác:
+
+| npm.cmd command | Chức năng |
+| --- | --- |
+| start | nest start, không watch. |
+| run start:debug | Watch với debugger, chỉ local. |
+| run start:prod | node dist/main; build trước, giữ config/ cạnh dist/. |
+| run test:watch / run test:cov / run test:debug | Vitest watch, coverage, inspector. |
+| run format | Prettier ghi lại source/tests, không cần setup. |
+| run deploy | nest deploy, ngoài phạm vi local; chưa xác minh cấu hình/quyền deploy. |
+
+Production sau build, Terminal 1 tại backend với database đã chọn:
+
+```powershell
+$env:NODE_ENV = 'production'
+$env:DEMO_IDENTITY_ENABLED = 'false'
+npm.cmd run start:prod
+```
+
+GET / phải trả 200, claim API phải trả 403 DEMO_IDENTITY_DISABLED. Không đổi sang
+development rồi gọi đó là production. Nest build không copy workflow JSON: giữ
+config/ cùng cấp dist/. Muốn quay lại demo, dừng production, đặt lại hai biến demo
+bằng $env: rồi npm.cmd run start:dev.
+
+## 10. Troubleshooting
+
+PowerShell 5.1 cmdlet HTTP ném exception với 4xx/5xx. Đọc HTTP status và ErrorDetails;
+đó không phải bằng chứng cmdlet không hỗ trợ API. Lỗi nghiệp vụ thường có dạng
+{ "error": { "code": "...", "message": "..." } }.
+
+| Triệu chứng | Xử lý |
+| --- | --- |
+| npm.ps1 bị chặn | Dùng npm.cmd; không nới execution policy toàn máy. |
+| export/mktemp/lsof không tìm thấy hoặc curl flags sai | Dùng các khối PowerShell ở đây, không copy lệnh Unix. |
+| EBADENGINE/module syntax error | Kiểm tra node --version/Get-Command/where.exe node; chọn Node 22.22.3+, mở Terminal mới, npm.cmd ci với cùng runtime. |
+| better-sqlite3 ABI/NODE_MODULE_VERSION | Không copy node_modules từ OS/Node khác; npm.cmd ci bằng đúng Windows Node đang chạy. |
+| node-gyp/native build fail | Đọc lỗi network/proxy trước. Nếu cần compile, cài Python/Visual Studio Build Tools C++ rồi mở Terminal mới và npm.cmd ci. Không bảo đảm mọi kiến trúc có prebuilt binary. |
+| Missing script: start:dev | Sai working directory; vào backend có package.json. |
+| EADDRINUSE | Xem Get-NetTCPConnection -State Listen -LocalPort 31879; dùng Get-Process -Id với OwningProcess đã in. Không kill process lạ. Chọn PORT khác, restart, đổi $baseUrl. |
+| Connection refused | Xem Terminal 1 và cổng; log NestApplication successfully started không đủ nếu sau đó có listen error. |
+| .env không có tác dụng | Backend không nạp .env; đặt $env: trong Terminal 1, restart. |
+| 403 DEMO_IDENTITY_DISABLED | Development cần đúng development/true trong server process; production phải tiếp tục fail closed. |
+| 401 IDENTITY_REQUIRED | Thiếu/sai X-Demo-Actor-Id; chỉ ba ID allowlist. |
+| 403 CLAIM_CREATION_FORBIDDEN/TRANSITION_FORBIDDEN | Chọn đúng role; adjuster không tạo claim, claimant không approve/payment/close. |
+| 404 CLAIM_NOT_FOUND | Kiểm tra UUID, DB, owner; claim khác owner cố ý bị ẩn. |
+| 400 INVALID_REQUEST | JSON, Content-Type, trường/độ dài/query đúng schema; JSON hỏng có thể bị framework từ chối trước handler. |
+| 409 REVISION_CONFLICT/STATE_CONFLICT | Đọc lại claim/discovery; không tự sửa revision của command có outcome chưa chắc chắn. |
+| 409 COMMAND_ID_REUSED | Retry giữ nguyên ID/actor/payload, không dùng ID cũ cho request khác. |
+| 422 CYCLE_LIMIT_REACHED | Hết ba lần request information trong đời claim; không reset counter. |
+| DATABASE_INITIALIZATION_FAILED | Path không rỗng, file không phải directory, parent/WAL ghi được. Không dùng Program Files/thư mục chỉ đọc. Kiểm tra path in ra/Test-Path. |
+| MIGRATION_DRIFT | Dừng, kiểm tra đúng DB/source, đối chiếu ID/checksum. Khôi phục migration gốc từ Git đáng tin cậy; không tìm được thì báo lỗi. Không sửa checksum/ledger, reset DB hoặc sửa applied migrations. |
+| MIGRATION_FAILED | Kiểm tra quyền/khóa/bộ migration; pending transaction rollback. Không sửa applied migration để vượt lỗi. |
+| WORKFLOW_VERSION_CONFLICT | Version đã đăng ký có nội dung khác; khôi phục đúng hoặc phát hành version mới, giữ pin claim cũ. |
+| Workflow configuration invalid | Giữ config/claims.v2.json và workflow.schema.json đúng chỗ, đọc được/hợp lệ. Không bỏ validator. |
+| STORAGE_BUSY/SQLITE_BUSY | Chờ writer; transition retry cùng command. Không xóa WAL/SHM/DB. |
+| Observe worker warning | Source còn credentials placeholder; đối chiếu HTTP/lỗi ứng dụng. Telemetry warning riêng chưa chứng minh API hỏng. |
+| dist/main không tìm thấy | Dừng watch, build trước start:prod, giữ config/ cạnh dist/. |
+
+## 11. Dừng server
+
+Terminal 1 nhấn **Ctrl+C**, chờ prompt. Nếu hỏi Terminate batch job (Y/N), chọn Y.
+Có Nest shutdown hooks/đóng SQLite khi module bị hủy; không Stop-Process theo tên
+node hàng loạt. Giữ nguyên database/sidecars. Dùng lại path để giữ dữ liệu; muốn
+demo mới thì tạo thư mục mới, không xóa/reset dữ liệu.
+
+## 12. Phạm vi xác minh của lần cập nhật Windows trước
+
+Máy sửa tài liệu là macOS, **không có Windows hoặc PowerShell**. Chưa thực thi hoặc
+parse bằng PowerShell, chưa xác minh cài native dependencies trong Windows clean
+session. Không tuyên bố Windows đã pass. Các lệnh được đối chiếu scripts/source;
+Node 22.15.1/npm 10.9.2 có sẵn dùng cho kiểm tra backend macOS, không chứng minh npm
+ci bằng Node 22.22.3 trên Windows thành công. Không clone/cài lại dependencies,
+chạy deploy hoặc ghi database hiện có chỉ để kiểm tra tài liệu.
+
+Xem [workflow vocabulary](config/README.md) và [năm kịch bản](../docs/demo-scenarios.md).
+Shell/curl trong guide kịch bản vẫn dành cho Unix, không copy thẳng vào PowerShell.
+Hướng dẫn này kiểm tra list/create/detail/discovery/audit; không tuyên bố đã chạy
+năm kịch bản bằng Windows. Backend/API không cần frontend để kiểm tra setup.
+
+Kết quả của lần cập nhật Windows trước trên macOS: npm test (217 passed), npm run
+test:e2e (113 passed), lint, build và TypeScript noEmit đều thành công. Đã chạy
+script start:prod với NODE_ENV=development trên cổng chọn động/database tạm mới:
+GET /, list/detail/discovery/audit trả 200, create trả 201, thiếu identity trả 401;
+SQLite quick_check=ok và đủ 5 migrations. Đây là kiểm tra API/compiled startup
+macOS, không thay thế chạy npm.cmd ci/start:dev trong Windows PowerShell.
+
+<a id="macos-va-linux"></a>
+
+## macOS và Linux — Terminal zsh/bash
+
+Các lệnh dưới đây dùng chung cho **macOS Terminal (zsh/bash)** và **Linux bash**.
+Không chạy chúng trong PowerShell. Không cần sửa npm scripts hoặc application code.
+Phần này chỉ setup/kiểm tra API; các [năm kịch bản](../docs/demo-scenarios.md) đã có
+lệnh Unix đúng nên không chép lại ở đây.
+
+### 1. Điều kiện riêng từng hệ điều hành
+
+- Cả hai: chọn **Node.js 22.22.3 hoặc bản 22.x mới hơn**, npm đi kèm, Git, curl.
+  Engine toolchain trong lockfile yêu cầu mức này; dự án không pin bản npm riêng.
+  Không dùng Node 16/18 hoặc copy node_modules từ OS/runtime khác.
+- macOS: nếu better-sqlite3 phải compile thay vì tải prebuilt binary, cần Python và
+  Apple Command Line Tools (C/C++). Dùng runtime đúng kiến trúc máy, nhất quán từ
+  cài dependency đến chạy server; không trộn native module Intel/Apple Silicon.
+- Linux: nếu native build cần thiết, cài Python, C/C++ compiler và make theo hướng
+  dẫn distro của bạn. Không có một lệnh apt/yum/apk phổ quát cho mọi distro. Binary
+  khả dụng còn tùy kiến trúc/libc; lần sửa này chưa xác minh trên Linux.
+- Chọn thư mục local ghi được cho SQLite/WAL/SHM. Không cần SQLite server hoặc CLI.
+  Không dùng sudo npm ci để né lỗi quyền.
+
+Terminal 1, từ thư mục bất kỳ:
+
+```sh
+node --version
+npm --version
+git --version
+curl --version
+```
+
+Mong đợi Node v22.22.3+ trong nhánh 22.x và các công cụ chạy được. Nếu thiếu/sai,
+cài hoặc chọn runtime thích hợp theo hệ điều hành rồi mở Terminal mới; kiểm tra
+`command -v node` và `command -v npm`. Không tiếp tục chỉ vì shell có một Node cũ.
+
+### 2. Clone và cài — Terminal 1
+
+```sh
+cd "$HOME"
+git clone https://github.com/tranngochung13/claims-workflow-orchestrator.git &&
+  cd claims-workflow-orchestrator/backend &&
+  npm ci
+```
+
+Mong đợi clone/install exit 0, thư mục hiện tại là backend. Nếu clone/install lỗi,
+dừng và xử lý trước startup. Checkout đã tồn tại: không clone đè/xóa, vào backend
+của nó rồi npm ci. Lệnh cài dùng đúng lockfile, thay node_modules nhưng không tạo DB.
+URL lấy từ Git remote; quyền truy cập repository cần xác minh trên máy sử dụng.
+
+### 3. Chọn database — Terminal 1, tại backend
+
+Chỉ chọn **A hoặc B**. Backend không tự nạp .env; các export phải ở Terminal chạy
+server. Tệp .env không tự thay thế những lệnh này. Không commit secrets/local env.
+
+**A. Demo/cài mới, đường dẫn mới hoàn toàn:**
+
+```sh
+export CWO_DEMO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claims-demo.XXXXXX")"
+test -n "$CWO_DEMO_DIR" && test -d "$CWO_DEMO_DIR" || exit 1
+export SQLITE_DATABASE_PATH="$CWO_DEMO_DIR/claims.sqlite"
+test ! -e "$SQLITE_DATABASE_PATH" || exit 1
+printf 'New demo database: %s\n' "$SQLITE_DATABASE_PATH"
+```
+
+Mong đợi in path mới chưa có claims.sqlite; backend tạo file ở startup. mktemp chỉ
+cho thư mục mới, không ghi đè DB cũ. Giữ path để dùng lại. Temp có thể bị hệ điều
+hành dọn; không lưu dữ liệu quan trọng lâu dài ở đây.
+
+**B. Database hiện có** (thay cho A), mặc định của checkout, tại backend:
+
+```sh
+export SQLITE_DATABASE_PATH="$(pwd -P)/data/claims.sqlite"
+test -f "$SQLITE_DATABASE_PATH" || { printf '%s\n' 'Existing database not found; stop and verify its path.' >&2; exit 1; }
+printf 'Existing database: %s\n' "$SQLITE_DATABASE_PATH"
+```
+
+Nếu process trước dùng path khác, thay giá trị bằng path tuyệt đối thật của tệp đó.
+Không dùng path không tồn tại để “phục hồi”. Startup có thể áp dụng pending migration
+và đăng ký workflow mới, không phải chỉ đọc: backup SQLite nhất quán trước nâng cấp
+dữ liệu quan trọng. Không copy riêng file chính khi writer/WAL còn hoạt động.
+
+Không override thì mặc định backend/data/claims.sqlite, theo module source/dist;
+path tương đối theo working directory. Test mode không override dùng :memory:.
+Path rỗng bị từ chối, parent được tạo đệ quy. Startup tự kiểm tra ID/SHA-256 trong
+schema_migrations rồi áp dụng pending migrations 001–005 theo transaction. Không
+có script migrate/reset/seed. Không sửa applied SQL, checksum hoặc xóa DB khi drift.
+Config/registry được validate và claim cũ giữ pin; WAL/foreign keys/FULL bật như
+phần Windows. Migration 005 chỉ ghi local payment, không chuyển tiền.
+
+### 4. Kiểm tra cổng và start — Terminal 1, tại backend
+
+Dùng Node để kiểm tra cổng, không phụ thuộc lsof trên macOS hoặc ss/netstat của
+một distro Linux cụ thể:
+
+```sh
+export PORT=31879
+export NODE_ENV=development
+export DEMO_IDENTITY_ENABLED=true
+node --input-type=module <<'JS'
+import net from 'node:net';
+const server = net.createServer();
+server.once('error', error => {
+  console.error('Port check failed:', error.code, '- choose another PORT before starting.');
+  process.exitCode = 1;
+});
+server.listen(Number(process.env.PORT), () => server.close());
 JS
 ```
 
-Thay đường dẫn mẫu trước khi chạy. Mong đợi `quick_check: ok`,
-`foreign_key_check: []`, danh sách 001–005 sau startup thành công trên code hiện tại.
-Lệnh không chạy migration, không in nội dung claim. Database cũ chưa được nâng cấp
-có thể chỉ có 001–004; không tự sửa lịch sử để ép danh sách khớp.
-
-## 6. Demo identity và quyền truy cập
-
-Mọi route `/api/claims` đều cần header `X-Demo-Actor-Id` thuộc allowlist backend:
-
-| Actor ID | Role | Quyền |
-| --- | --- | --- |
-| `claimant-1` | `claimant` | Tạo claim, xem claim của mình, thực hiện transition cho claimant. |
-| `claimant-2` | `claimant` | Giống trên, nhưng sở hữu tập claim riêng. |
-| `adjuster-1` | `adjuster` | Xem mọi claim; thực hiện transition cho adjuster, không được tạo claim. |
-
-Không truyền `role`, `actorId`, `ownerActorId` hoặc state trong body tạo claim.
-Backend tự xác định role và owner. Claim khác owner hoặc không tồn tại cùng trả
-404 `CLAIM_NOT_FOUND`. Legacy claim không có owner không hiển thị cho claimant.
-
-## 7. Thử API bằng curl — Terminal B
-
-Các lệnh dưới đây dùng `CWO_API_BASE_URL` ở bước 5, với server demo đang bật.
-Chỉ lệnh tạo claim ghi dữ liệu; nên thực hiện trên database demo mới.
-
-### Liệt kê claim của claimant-1
+Mong đợi exit 0, không có lỗi. Nếu khác, không chạy bước tiếp theo; chọn PORT khác
+và kiểm tra lại. Đây là preflight, vẫn có thể bị process khác chiếm cổng sau đó.
 
 ```sh
-curl -i "$CWO_API_BASE_URL/api/claims?limit=10&offset=0" \
-  -H 'X-Demo-Actor-Id: claimant-1'
+printf 'PORT=%s NODE_ENV=%s DEMO_IDENTITY_ENABLED=%s\n' "$PORT" "$NODE_ENV" "$DEMO_IDENTITY_ENABLED"
+printf 'SQLITE_DATABASE_PATH=%s\n' "$SQLITE_DATABASE_PATH"
+npm run start:dev
 ```
 
-HTTP **200**, JSON `{ "items": [...], "limit": 10, "offset": 0 }`.
-Với database mới, `items` là `[]`. Adjuster dùng cùng lệnh với header
-`X-Demo-Actor-Id: adjuster-1` để xem tất cả claim.
-Phân trang mặc định limit 50/offset 0; limit hợp lệ 1–100, offset nguyên không âm.
+Mong đợi compile không lỗi, routes đăng ký và listen thành công. Giữ Terminal 1 mở.
+Nếu có EADDRINUSE hoặc lỗi startup, **không gửi POST** tới cổng đó; có thể server
+khác đang trả lời. Chọn cổng khác, restart và cập nhật URL Terminal 2.
 
-### Tạo claim và lưu ID thật
+PORT mặc định 3000, code chưa validate riêng; dùng số hợp lệ. Hai biến demo phải
+đồng thời chính xác development/true. API_PROXY_TARGET là biến Vite, không backend.
+App không giới hạn bind host: dùng URL loopback không đồng nghĩa chỉ listen local.
+Chỉ bật demo trong môi trường tin cậy, không public; không đổi production guard.
+
+### 5. Kiểm tra HTTP và API — Terminal 2
+
+Từ thư mục bất kỳ, macOS zsh/bash hoặc Linux bash; đổi URL nếu Terminal 1 đổi PORT:
 
 ```sh
-CWO_CREATE_JSON="$(curl --fail-with-body -sS "$CWO_API_BASE_URL/api/claims" \
-  -H 'Content-Type: application/json' \
-  -H 'X-Demo-Actor-Id: claimant-1' \
-  --data '{"title":"Hu hong man hinh","description":"Man hinh bi hong khi van chuyen."}')"
+export CWO_API_BASE_URL=http://127.0.0.1:31879
+curl -i "$CWO_API_BASE_URL/"
+curl -i "$CWO_API_BASE_URL/api/claims?limit=10&offset=0" \
+  -H 'X-Demo-Actor-Id: claimant-1'
+curl -i "$CWO_API_BASE_URL/api/claims?limit=10&offset=0" \
+  -H 'X-Demo-Actor-Id: adjuster-1'
+```
+
+Mong đợi 200 và văn bản Hello World! ở root, 200 với page items/limit/offset ở hai
+lệnh list; database mới items=[]. Không có /health. Claim API cần header: claimant-1
+và claimant-2 chỉ xem claim mình sở hữu; adjuster-1 xem mọi claim nhưng không tạo.
+Nếu status khác, xem bảng lỗi bên dưới; không tiếp tục ghi khi chưa rõ server/path.
+
+**Tạo claim, chỉ trên database demo mới.** Terminal 2 cần Node để đọc ID từ JSON:
+
+```sh
+CWO_CREATE_JSON="$(curl --fail -sS "$CWO_API_BASE_URL/api/claims" \
+  -H 'Content-Type: application/json' -H 'X-Demo-Actor-Id: claimant-1' \
+  --data '{"title":"Hu hong man hinh","description":"Man hinh hong khi van chuyen."}')" || exit 1
 printf '%s\n' "$CWO_CREATE_JSON"
 export CWO_CLAIM_ID="$(printf '%s' "$CWO_CREATE_JSON" | node --input-type=module -e '
 let text = "";
 for await (const chunk of process.stdin) text += chunk;
 const claim = JSON.parse(text);
-if (typeof claim.id !== "string") throw new Error("Không nhận được claim ID; kiểm tra lỗi API");
+if (typeof claim.id !== "string") throw new Error("No claim ID; stop and inspect response");
 console.log(claim.id);
 ')"
-printf 'Claim ID: %s\n' "$CWO_CLAIM_ID"
+test -n "$CWO_CLAIM_ID" || exit 1
 ```
 
-HTTP **201**; ví dụ JSON có các trường (ID và thời gian do server sinh):
-
-```json
-{
-  "id": "<UUID thực tế>",
-  "ownerActorId": "claimant-1",
-  "workflowId": "claims",
-  "workflowVersion": 2,
-  "state": "draft",
-  "title": "Hu hong man hinh",
-  "description": "Man hinh bi hong khi van chuyen.",
-  "revision": 0,
-  "informationRequestCount": 0,
-  "createdAt": "<UTC ISO timestamp>",
-  "updatedAt": "<UTC ISO timestamp>"
-}
-```
-
-Lệnh tạo không in HTTP headers để giữ body là JSON cho bước lấy ID. Nếu gặp lỗi,
-dừng và kiểm tra response trước khi dùng ID. Không tự động retry tạo claim vì
-endpoint tạo chưa có command deduplication. `title`/`description` phải là chuỗi
-không rỗng, tối đa lần lượt 120/2000 ký tự; không chấp nhận trường thừa.
-`--fail-with-body` cần curl hỗ trợ option này; kiểm tra `curl --version` nếu báo lỗi.
-
-### Xem chi tiết, action được phép và audit
+POST trả 201 (khối trên giữ body JSON, không in HTTP headers); response có UUID thật,
+ownerActorId=claimant-1, workflowId=claims, workflowVersion=2, state=draft, revision=0,
+informationRequestCount=0, title/description và UTC timestamps. Title/description
+không rỗng, tối đa 120/2000 ký tự, không nhận role/owner/state hay trường thừa.
+Không retry tạo tự động nếu outcome chưa rõ; endpoint tạo không có deduplication.
+Nếu curl lỗi, dùng request không ghi như GET / để chẩn đoán, không gửi POST lại ngay.
 
 ```sh
 curl -i "$CWO_API_BASE_URL/api/claims/$CWO_CLAIM_ID" \
   -H 'X-Demo-Actor-Id: claimant-1'
-
 curl -i "$CWO_API_BASE_URL/api/claims/$CWO_CLAIM_ID/available-transitions" \
   -H 'X-Demo-Actor-Id: claimant-1'
-
 curl -i "$CWO_API_BASE_URL/api/claims/$CWO_CLAIM_ID/audit?limit=10&offset=0" \
   -H 'X-Demo-Actor-Id: claimant-1'
 ```
 
-Cả ba trả HTTP **200**:
+Mong đợi ba status 200: detail là claim object; discovery có metadata/cycle limit,
+transitions với submit eligible; audit có metadata, items=[], limit/offset. Không
+có API sửa/xóa audit. Claim khác owner bị 404 giống claim không tồn tại. Detail và
+discovery không nhận query; list/audit chỉ nhận limit 1–100, offset không âm.
 
-- Detail trả claim object như response tạo ở trên.
-- Available transitions trả `claimId`, `workflowId`, `workflowVersion`, `state`,
-  `revision`, `informationRequestCount`, `informationRequestLimit`, `transitions`.
-  Claim draft mới có action `submit`; mỗi action có `id`, `label`, `from`, `to`,
-  `eligible`, `reasonCode`, `inputFields`. Eligibility vẫn được kiểm tra lại khi execute.
-- Audit trả `claimId`, `workflowId`, `workflowVersion`, `items`, `limit`, `offset`.
-  Claim mới có `items: []`. Event thành công có actor, transition, state trước/sau,
-  revision trước/sau và thời gian. Không có endpoint sửa/xóa audit.
+### 6. SQLite readiness chỉ đọc — Terminal 2, tại backend
 
-Detail và available-transitions không chấp nhận query parameters. Audit chỉ nhận
-`limit`/`offset`. Nếu muốn thử chuyển trạng thái, xem
-[năm kịch bản đầy đủ](../docs/demo-scenarios.md), gồm command UUID, expectedRevision,
-input bắt buộc, replay và lifecycle tới closed. Không tự suy ra revision mới để
-resubmit một command đang có kết quả chưa chắc chắn.
-
-## 8. Xử lý lỗi thường gặp
-
-Lỗi nghiệp vụ có dạng `{ "error": { "code": "...", "message": "..." } }`.
-Thông báo lỗi startup xuất hiện trong Terminal A.
-
-| Triệu chứng | Kiểm tra và xử lý |
-| --- | --- |
-| `EADDRINUSE` | Cổng đã bị process khác dùng. Dừng đúng server của bạn hoặc chọn `PORT` khác rồi cập nhật `CWO_API_BASE_URL` và frontend proxy. Không kill process lạ. |
-| Curl không kết nối được | Kiểm tra Terminal A đã startup xong, đúng cổng và chưa dừng. `GET /` phải trả 200 trước khi thử claim API. |
-| 403 `DEMO_IDENTITY_DISABLED` | Cần đồng thời `NODE_ENV=development` và `DEMO_IDENTITY_ENABLED=true` trong Terminal chạy backend; restart sau khi đổi env. Không bỏ guard; production phải tiếp tục từ chối. |
-| 401 `IDENTITY_REQUIRED` | Thiếu/sai header actor. Chỉ dùng ba ID trong bảng allowlist, không gửi role tùy ý. |
-| 403 `CLAIM_CREATION_FORBIDDEN` / `TRANSITION_FORBIDDEN` | Dùng actor đúng role. Adjuster không tạo claim; owner claimant không được approve/payment/close. |
-| 404 `CLAIM_NOT_FOUND` | Kiểm tra UUID thật, đúng database và đúng owner. Không bỏ ownership check để tìm claim khác. |
-| 400 `INVALID_REQUEST` | Kiểm tra JSON, Content-Type, tên trường/độ dài, query pagination. Body tạo chỉ nhận title và description. JSON sai cú pháp có thể bị framework từ chối trước handler. |
-| 409 `REVISION_CONFLICT` / `STATE_CONFLICT` | Đọc lại claim/actions và đánh giá hành động. Không tự thay expectedRevision của command cũ. |
-| 409 `COMMAND_ID_REUSED` | Một command ID đã dùng cho request/actor khác. Retry cùng command phải giữ nguyên payload và actor. |
-| 422 `CYCLE_LIMIT_REACHED` | Đã dùng hết ba lần yêu cầu thông tin trong suốt đời claim; không reset counter. |
-| `DATABASE_INITIALIZATION_FAILED` | Kiểm tra SQLITE_DATABASE_PATH không rỗng, thư mục ghi được, path trỏ tới file chứ không phải thư mục; WAL cần quyền ghi cạnh file. Không sửa quyền quá rộng hoặc xóa database. |
-| `MIGRATION_DRIFT` | Dừng. Xác minh đúng database, đối chiếu ID/checksum trong schema_migrations với migration của checkout. Khôi phục đúng migration gốc từ lịch sử đáng tin cậy; nếu không tìm được, giữ nguyên dữ liệu và báo lỗi để xử lý. Không sửa checksum hay reset ledger. |
-| `MIGRATION_FAILED` | Đọc lỗi, kiểm tra quyền/khóa/database và bộ migration đúng version. Transaction migration đang chờ đã rollback. Không sửa migration đã áp dụng để thử vượt lỗi. |
-| `Workflow configuration invalid` | Kiểm tra config/claims.v2.json và config/workflow.schema.json tồn tại, đọc được và hợp lệ; không tắt validator. |
-| `WORKFLOW_VERSION_CONFLICT` | Nội dung khác nhưng dùng lại ID/version đã đăng ký. Khôi phục cấu hình đúng hoặc phát hành version mới; giữ pin của claim cũ. |
-| `SQLITE_BUSY` / 503 `STORAGE_BUSY` | Một writer khác giữ khóa. Chờ writer hoàn tất; với transition, retry đúng command ID/payload cũ. Không xóa WAL/SHM hay database. |
-| Lỗi load native better-sqlite3 / ABI / thiếu binary | Xác nhận Node phù hợp lockfile, cài lại dependency bằng npm ci với cùng runtime. Khi cần build native, cài toolchain hệ điều hành. Không thay lockfile tùy tiện. |
-| `EBADENGINE` khi cài | Kiểm tra node --version và yêu cầu engine từ lockfile. Môi trường Node 22.15.1 từng chạy được nhưng thấp hơn yêu cầu một số công cụ; ưu tiên 22.22.3+ trong nhánh 22.x. |
-| Không tìm thấy dist/main | Chạy npm run build trước start:prod và giữ config/ ở đúng vị trí. |
-| Observe worker báo lỗi telemetry | Scaffold còn credential placeholder. Kiểm tra HTTP và log startup thực tế; cảnh báo telemetry riêng lẻ chưa chứng minh API thất bại. Không tắt kiểm tra ứng dụng để che lỗi. |
-
-## 9. Kiểm tra tự động và các scripts
-
-Từ `backend/`, với dependencies đã cài:
+Vào backend của checkout (ví dụ cd "$HOME/claims-workflow-orchestrator/backend").
+Nhập path được Terminal 1 in ra, không chạy lại mktemp:
 
 ```sh
-npm test
-npm run test:e2e
-npm run build
-npm run lint
-./node_modules/.bin/tsc -p tsconfig.json --noEmit --incremental false
+printf 'Paste absolute database path from Terminal 1 (no surrounding quotes): '
+IFS= read -r SQLITE_DATABASE_PATH
+export SQLITE_DATABASE_PATH
+test -f "$SQLITE_DATABASE_PATH" || exit 1
+node --input-type=module <<'JS'
+import Database from 'better-sqlite3';
+const db = new Database(process.env.SQLITE_DATABASE_PATH, { readonly: true, fileMustExist: true });
+try {
+  db.pragma('query_only = ON');
+  console.log('quick_check:', db.pragma('quick_check', { simple: true }));
+  console.log('foreign_key_check:', db.pragma('foreign_key_check'));
+  console.log('migrations:', db.prepare('SELECT id FROM schema_migrations ORDER BY id').all());
+} finally { db.close(); }
+JS
 ```
 
-Mong đợi exit code 0. Tests dùng memory/database tạm qua cấu hình test; không đặt
-SQLITE_DATABASE_PATH thành database dữ liệu thật để chạy thử công cụ khác.
-E2E cần quyền mở socket local. Build tạo `dist` và có thể cập nhật compiler cache.
+Mong đợi quick_check: ok, foreign_key_check: [], 001–005 sau startup thành công.
+DB cũ chưa nâng cấp có thể chỉ có 001–004; không sửa ledger để ép khớp. Không dùng
+DatabaseService để đọc trạng thái vì constructor của nó có thể migrate.
 
-| Scripts còn lại | Công dụng |
+### 7. Tests, build, shutdown — tại backend
+
+Terminal 2, tách override DB khỏi phiên test, không đổi server ở Terminal 1:
+
+```sh
+unset SQLITE_DATABASE_PATH
+npm test &&
+  npm run test:e2e &&
+  npm run lint &&
+  ./node_modules/.bin/tsc -p tsconfig.json --noEmit --incremental false
+```
+
+Mong đợi tests passed và exit 0. E2E cần socket local, tests dùng memory/DB tạm.
+Nếu lỗi, sửa nguyên nhân; không bỏ test/guard. Dừng watch ở Terminal 1 bằng **Ctrl+C**,
+chờ prompt, rồi build tại backend để tránh cùng ghi dist/compiler cache:
+
+```sh
+npm run build
+```
+
+Mong đợi exit 0, tạo dist. Không xóa DB/WAL/SHM khi dừng. Có shutdown hooks/đóng SQLite;
+không kill toàn bộ process Node. Dùng lại path để giữ dữ liệu; demo mới chọn path mới.
+
+Tùy chọn chạy compiled server, Terminal 1 giữ database/PORT đã chọn:
+
+```sh
+NODE_ENV=production DEMO_IDENTITY_ENABLED=false npm run start:prod
+```
+
+Cần build trước, giữ config/ bên cạnh dist/; GET / trả 200, claim API phải 403
+DEMO_IDENTITY_DISABLED. Đây không phải cấu hình production authentication hoàn chỉnh.
+Không đổi NODE_ENV sang development để vượt guard. npm start là lựa chọn chạy
+không watch; các script khác được liệt kê trong phần Windows ở trên.
+
+### 8. Troubleshooting macOS/Linux
+
+| Lỗi | Cách xử lý |
 | --- | --- |
-| `npm run start:debug` | Nest watch kèm debugger; chỉ dùng local. |
-| `npm run test:watch` | Chạy Vitest watch. |
-| `npm run test:cov` | Vitest kèm coverage. |
-| `npm run test:debug` | Vitest inspector, không chạy file song song. |
-| `npm run format` | Prettier **ghi lại** source/tests; không cần để setup. |
-| `npm run deploy` | `nest deploy`; không thuộc quy trình chạy local, chưa xác minh cấu hình/quyền triển khai. |
+| Command not found/EBADENGINE/module syntax error | Kiểm tra command -v node/npm và phiên bản; chọn Node 22.22.3+ nhánh 22.x, mở Terminal mới, npm ci cùng runtime. |
+| Native better-sqlite3/ABI/build fail | Không copy node_modules giữa OS/kiến trúc/Node. Kiểm tra tải binary/proxy; nếu compile cần Python/C++ và toolchain riêng macOS/distro như phần prerequisite. |
+| Permission denied khi cài | Dùng checkout do user sở hữu, sửa vị trí/quyền theo chính sách máy; không sudo npm ci hoặc chmod rộng để né lỗi. |
+| Missing script | Vào backend chứa package.json, không chạy npm start:dev từ repository root. Lệnh đúng là npm run start:dev. |
+| EADDRINUSE | Dừng request ghi, chọn PORT trống và cập nhật URL. Trên macOS có thể dùng lsof -nP -iTCP:31879 -sTCP:LISTEN; Linux có ss -ltnp nếu đã cài. Không giả định công cụ này có trên mọi distro, không kill process lạ. |
+| Curl connection refused | Đọc startup log, đúng cổng; log successfully started chưa đủ nếu sau đó có listen error. |
+| 401/403 | Đúng allowlisted header và export hai biến demo ở Terminal 1 rồi restart; production phải fail closed. Adjuster không tạo claim. |
+| 400/404 | Đúng body JSON/query/UUID/database/owner; không bỏ ownership hoặc validation. |
+| DATABASE_INITIALIZATION_FAILED | Path không rỗng, parent và WAL ghi được, file không phải directory; kiểm tra path in ở Terminal 1, không tạo DB thay thế khi tìm sai path. |
+| MIGRATION_DRIFT/MIGRATION_FAILED | Dừng, đối chiếu đúng DB/source. Khôi phục bộ applied SQL gốc đáng tin cậy; không sửa checksum/history/reset DB. Pending transaction lỗi được rollback. |
+| WORKFLOW_VERSION_CONFLICT/config invalid | Khôi phục đúng version hoặc tạo version mới, giữ config/ đúng vị trí/hợp lệ, không đổi pin claim cũ. |
+| STORAGE_BUSY/SQLITE_BUSY | Chờ writer; transition retry cùng command ID/payload, không xóa sidecars/DB. |
+| Observe telemetry warning | Kiểm tra HTTP/lỗi ứng dụng; placeholder telemetry không phải bằng chứng API hỏng. |
 
-## 10. Dừng server
+Các mã transition/revision/cycle khác có cùng ý nghĩa như bảng Windows, không phụ
+thuộc shell. Không tự đổi revision hoặc reset lifetime counter để ép transition.
 
-Trong Terminal A, nhấn **Ctrl+C**, chờ process thoát và prompt xuất hiện. Không chỉ
-đóng tab khi cần chắc chắn server đã dừng. Backend bật Nest shutdown hooks;
-DatabaseService đóng kết nối khi module bị hủy. Nếu watch còn process con, kiểm
-tra process của đúng phiên chạy trước khi thao tác; không kill theo tên hàng loạt.
-Giữ nguyên database và các tệp đi kèm. Chạy lại với cùng đường dẫn sẽ giữ dữ liệu;
-chọn database mới bằng phương án A nếu cần một demo độc lập.
+### 9. Trạng thái xác minh theo OS
 
-## 11. Phạm vi xác minh hướng dẫn
+- **macOS:** có môi trường thực; kết quả chạy trong lần cập nhật này được báo riêng
+  ở phần tổng kết bên dưới. Cài mới/clone với Node 22.22.3 chưa được thực thi; runtime
+  sẵn có là Node 22.15.1/npm 10.9.2, thấp hơn engine một số tooling.
+- **Linux:** đã đối chiếu source, bash syntax và quy trình nhưng chưa thực thi trên
+  Linux. Docker daemon local không chạy; chạy bash trên macOS không chứng minh Linux.
+- **Windows:** giữ nguyên các commands PowerShell của phần trước; không có Windows/
+  PowerShell trong môi trường này nên chưa thực thi, không tuyên bố Windows pass.
 
-Đã đối chiếu scripts, biến môi trường, schema, routes và response với source hiện
-tại. Đã chạy start:dev và các ví dụ HTTP/kiểm tra SQLite trên database tạm riêng,
-với Node 22.15.1/npm 10.9.2 có sẵn. Node này thấp hơn yêu cầu một số công cụ trong
-lockfile; cài mới bằng Node 22.22.3+ cần xác minh trên máy sử dụng. Không chạy lại
-npm ci, deploy, coverage/debug, hoặc khởi động production trong lần sửa tài liệu
-này. Các lệnh đó được đối chiếu với package.json; không coi là đã thử thực tế.
+Kết quả macOS của lần bổ sung Unix này: các khối tạo DB mới, preflight cổng và
+start:dev trích từ tài liệu đã chạy bằng bash; các khối API và SQLite readiness
+đã chạy bằng zsh. Root, list claimant/adjuster, detail/discovery/audit đều trả 200;
+create trả claim ID thật; quick_check=ok, foreign_key_check=[], migrations 001–005.
+Đã dừng server test bằng Ctrl+C. npm test: 217 passed; npm run test:e2e: 113 passed;
+build, lint, TypeScript noEmit và git diff --check thành công. Mọi khối Unix parse
+được bằng bash -n và zsh -n; đây không phải kiểm chứng execution trên Linux.
+Không chạy npm ci/clone lại; dùng dependencies sẵn có với Node 22.15.1/npm 10.9.2.

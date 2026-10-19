@@ -4,12 +4,13 @@ A configurable claims workflow with a NestJS/SQLite backend and a React/Vite
 reviewer demo. States, role restrictions, preconditions, input forms, and local
 side effects come from immutable, registered JSON workflow versions.
 
-Start with [local setup and the five reproducible scenarios](docs/demo-scenarios.md).
+Start with [backend setup for Windows, macOS, and Linux](backend/README.md),
+then follow the [five reproducible scenarios](docs/demo-scenarios.md).
 Use an isolated disposable SQLite database for demonstrations; existing migration
 history must not be edited or reset.
 
 - [Frontend setup, checks, and limitations](frontend/README.md)
-- [Backend architecture, API contracts, and checks](backend/README.md)
+- [Backend setup, API examples, and checks](backend/README.md)
 - [Workflow configuration vocabulary](backend/config/README.md)
 
 The UI is development-only and requires the backend's development demo identity
