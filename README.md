@@ -12,6 +12,8 @@ history must not be edited or reset.
 - [Frontend setup, checks, and limitations](frontend/README.md)
 - [Backend setup, API examples, and checks](backend/README.md)
 - [Workflow configuration vocabulary](backend/config/README.md)
+- [Technical writeup](docs/technical-writeup.md)
+- [AI conversation log](docs/ai-conversation-log.md)
 
 The UI is development-only and requires the backend's development demo identity
 flags. Production builds intentionally expose no impersonation controls or
