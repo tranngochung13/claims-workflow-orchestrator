@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "workflowId": "claims",
+  "version": 2,
+  "initialState": "draft",
+  "limits": {
+    "informationRequests": 3
+  },
+  "states": [
+    {
+      "id": "draft",
+      "label": "Draft",
+      "terminal": false
+    },
+    {
+      "id": "submitted",
+      "label": "Submitted",
+      "terminal": false
+    },
+    {
+      "id": "documents_verified",
+      "label": "Documents verified",
+      "terminal": false
+    },
+    {
+      "id": "under_assessment",
+      "label": "Under assessment",
+      "terminal": false
+    },
+    {
+      "id": "pending_info",
+      "label": "Pending info",
+      "terminal": false
+    },
+    {
+      "id": "approved",
+      "label": "Approved",
+      "terminal": false
+    },
+    {
+      "id": "payment_initiated",
+      "label": "Payment initiated",
+      "terminal": false
+    },
+    {
+      "id": "rejected",
+      "label": "Rejected",
+      "terminal": false
+    },
+    {
+      "id": "closed",
+      "label": "Closed",
+      "terminal": true
+    }
+  ],
+  "transitions": [
+    {
+      "id": "submit",
+      "label": "Submit",
+      "from": "draft",
+      "to": "submitted",
+      "roles": ["claimant"],
+      "inputFields": [],
+      "preconditions": [
+        {
+          "type": "claimFieldsPresent",
+          "fields": ["title", "description"]
+        }
+      ],
+      "sideEffects": []
+    },
+    {
+      "id": "verify_documents",
+      "label": "Verify documents",
+      "from": "submitted",
+      "to": "documents_verified",
+      "roles": ["adjuster"],
+      "inputFields": [],
+      "preconditions": [],
+      "sideEffects": []
+    },
+    {
+      "id": "start_assessment",
+      "label": "Start assessment",
+      "from": "documents_verified",
+      "to": "under_assessment",
+      "roles": ["adjuster"],
+      "inputFields": [],
+      "preconditions": [],
+      "sideEffects": []
+    },
+    {
+      "id": "request_information",
+      "label": "Request information",
+      "from": "under_assessment",
+      "to": "pending_info",
+      "roles": ["adjuster"],
+      "inputFields": [
+        {
+          "name": "message",
+          "label": "Message",
+          "required": true,
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      ],
+      "preconditions": [],
+      "sideEffects": [
+        {
+          "type": "createNotification",
+          "recipient": "claimant",
+          "template": "information_requested"
+        }
+      ],
+      "kind": "information_request"
+    },
+    {
+      "id": "provide_information",
+      "label": "Provide information",
+      "from": "pending_info",
+      "to": "documents_verified",
+      "roles": ["claimant"],
+      "inputFields": [
+        {
+          "name": "response",
+          "label": "Response",
+          "required": true,
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      ],
+      "preconditions": [],
+      "sideEffects": []
+    },
+    {
+      "id": "approve",
+      "label": "Approve",
+      "from": "under_assessment",
+      "to": "approved",
+      "roles": ["adjuster"],
+      "inputFields": [],
+      "preconditions": [],
+      "sideEffects": [
+        {
+          "type": "createNotification",
+          "recipient": "claimant",
+          "template": "claim_approved"
+        }
+      ]
+    },
+    {
+      "id": "reject",
+      "label": "Reject",
+      "from": "under_assessment",
+      "to": "rejected",
+      "roles": ["adjuster"],
+      "inputFields": [
+        {
+          "name": "reason",
+          "label": "Reason",
+          "required": true,
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      ],
+      "preconditions": [],
+      "sideEffects": [
+        {
+          "type": "createNotification",
+          "recipient": "claimant",
+          "template": "claim_rejected"
+        }
+      ]
+    },
+    {
+      "id": "initiate_payment",
+      "label": "Initiate payment (local record only)",
+      "from": "approved",
+      "to": "payment_initiated",
+      "roles": ["adjuster"],
+      "inputFields": [],
+      "preconditions": [],
+      "sideEffects": [
+        {
+          "type": "recordPaymentInitiation"
+        }
+      ]
+    },
+    {
+      "id": "close_paid",
+      "label": "Close claim",
+      "from": "payment_initiated",
+      "to": "closed",
+      "roles": ["adjuster"],
+      "inputFields": [],
+      "preconditions": [],
+      "sideEffects": []
+    },
+    {
+      "id": "close_rejected",
+      "label": "Close rejected claim",
+      "from": "rejected",
+      "to": "closed",
+      "roles": ["adjuster"],
+      "inputFields": [],
+      "preconditions": [],
+      "sideEffects": []
+    }
+  ]
+}

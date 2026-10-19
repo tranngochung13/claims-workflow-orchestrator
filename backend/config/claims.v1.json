@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "workflowId": "claims",
+  "version": 1,
+  "initialState": "draft",
+  "limits": {
+    "informationRequests": 3
+  },
+  "states": [
+    {
+      "id": "draft",
+      "label": "Draft",
+      "terminal": false
+    },
+    {
+      "id": "submitted",
+      "label": "Submitted",
+      "terminal": false
+    },
+    {
+      "id": "under_review",
+      "label": "Under review",
+      "terminal": false
+    },
+    {
+      "id": "awaiting_information",
+      "label": "Awaiting information",
+      "terminal": false
+    },
+    {
+      "id": "approved",
+      "label": "Approved",
+      "terminal": true
+    },
+    {
+      "id": "rejected",
+      "label": "Rejected",
+      "terminal": true
+    }
+  ],
+  "transitions": [
+    {
+      "id": "submit",
+      "label": "Submit",
+      "from": "draft",
+      "to": "submitted",
+      "roles": ["claimant"],
+      "inputFields": [],
+      "preconditions": [
+        {
+          "type": "claimFieldsPresent",
+          "fields": ["title", "description"]
+        }
+      ],
+      "sideEffects": []
+    },
+    {
+      "id": "start_review",
+      "label": "Start review",
+      "from": "submitted",
+      "to": "under_review",
+      "roles": ["adjuster"],
+      "inputFields": [],
+      "preconditions": [],
+      "sideEffects": []
+    },
+    {
+      "id": "request_information",
+      "label": "Request information",
+      "from": "under_review",
+      "to": "awaiting_information",
+      "roles": ["adjuster"],
+      "inputFields": [
+        {
+          "name": "message",
+          "label": "Message",
+          "required": true,
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      ],
+      "preconditions": [],
+      "sideEffects": [
+        {
+          "type": "createNotification",
+          "recipient": "claimant",
+          "template": "information_requested"
+        }
+      ],
+      "kind": "information_request"
+    },
+    {
+      "id": "provide_information",
+      "label": "Provide information",
+      "from": "awaiting_information",
+      "to": "under_review",
+      "roles": ["claimant"],
+      "inputFields": [
+        {
+          "name": "response",
+          "label": "Response",
+          "required": true,
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      ],
+      "preconditions": [],
+      "sideEffects": []
+    },
+    {
+      "id": "approve",
+      "label": "Approve",
+      "from": "under_review",
+      "to": "approved",
+      "roles": ["adjuster"],
+      "inputFields": [],
+      "preconditions": [],
+      "sideEffects": [
+        {
+          "type": "createNotification",
+          "recipient": "claimant",
+          "template": "claim_approved"
+        }
+      ]
+    },
+    {
+      "id": "reject",
+      "label": "Reject",
+      "from": "under_review",
+      "to": "rejected",
+      "roles": ["adjuster"],
+      "inputFields": [
+        {
+          "name": "reason",
+          "label": "Reason",
+          "required": true,
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      ],
+      "preconditions": [],
+      "sideEffects": [
+        {
+          "type": "createNotification",
+          "recipient": "claimant",
+          "template": "claim_rejected"
+        }
+      ]
+    }
+  ]
+}
