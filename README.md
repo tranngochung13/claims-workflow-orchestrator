@@ -13,6 +13,8 @@ history must not be edited or reset.
 - [Backend setup, API examples, and checks](backend/README.md)
 - [Workflow configuration vocabulary](backend/config/README.md)
 - [Technical writeup](docs/technical-writeup.md)
+- [Test scenario results](docs/test-results.md)
+- [Logical results](docs/logical-results.md)
 - [AI conversation log](docs/ai-conversation-log.md)
 
 The UI is development-only and requires the backend's development demo identity
