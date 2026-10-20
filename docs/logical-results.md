@@ -6,6 +6,9 @@ Ký ức đầu tiên của em là em nhớ lại thời lớp 3, trên đườn
 
 Cách đây tầm 1 tháng, vào giữa tháng 9 năm 2026, em có quên laptop cá nhân ở phòng khi đã đi làm, em lên công ty và k thấy máy tính mình đâu, em chợt nhớ ra là em đã bỏ quên ở phòng và quay về lấy. Khi về đến nhà, em đã lấy Balô chứa laptop đặt ngay ghế, và có đi vào nhà vệ sinh. Sau khi ra để lên lại công ty, khi khóa cửa lại, chuẩn bị lên xe để đi, thì em thấy vai mình khá là nhẹ, và em sờ lên thử thì thấy chưa có mang Balô. Vậy là em mở cửa ra lấy Balô mang lên vai và đi. Đó là lần cuối em bỏ quên 1 món đồ của mình.
 
+## Q4 — Người bán hàng nào dễ chịu nhất?
+Em thường xuyên ăn cơm ở 1 quán cơm, cơm rẻ mà chất lượng, chủ tiệm cơm nhiệt tình. Lúc vào thì luôn hỏi em ăn gì, và nhớ những món em k ăn. Em là khách quen của quán được tầm 5 tháng. Họ luôn hỏi khách trước và luôn có thái độ vui vẻ.
+
 ## Q8 — Viết hướng dẫn đổ xăng tại cây xăng nhanh nhất có thể
 Bước 1: Chọn cây xăng phù hợp
 * Nếu trạm hiện tại quá đông, cân nhắc trạm gần đó có hàng chờ ngắn hơn.
